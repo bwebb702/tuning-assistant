@@ -1,0 +1,1 @@
+Tuning Assistant that creates several useful graphs to help with tuning your WRX. Load a log file when prompted and this program will create an interactive plotly html file with several graphs to for tuning purposes.
