@@ -5,6 +5,16 @@ import plotly.graph_objects as go
 from tkinter import filedialog as fd
 from tkinter import Tk
 from plotly.subplots import make_subplots
+from plotly.colors import sample_colorscale
+
+
+# ---------- Dark Theme ----------
+DARK_BG = "#181a1f"
+DARK_PANEL = "#20232a"
+DARK_GRID = "#3a3d45"
+LIGHT_TEXT = "#e6e6e6"
+MUTED_TEXT = "#a9adb7"
+ACCENT = "#2b8cff"
 
 
 # ---------- Column Headers ----------
@@ -56,42 +66,25 @@ def getWOTruns(df):
         if key in df.columns:
             df = df.rename(columns={key: headers[key]})
 
-    df["Throttle"] = pd.to_numeric(
-        df["Throttle"],
-        errors="coerce"
-    )
+    df["Throttle"] = pd.to_numeric(df["Throttle"], errors="coerce")
+    df["RPM"] = pd.to_numeric(df["RPM"], errors="coerce")
 
-    df["RPM"] = pd.to_numeric(
-        df["RPM"],
-        errors="coerce"
-    )
-
-    # Identify consecutive 100% throttle groups
     df["run"] = (
         df["Throttle"].eq(100) &
         ~df["Throttle"].shift().eq(100)
     ).cumsum()
 
-    # Only retain rows at 100% throttle
-    df.loc[
-        ~df["Throttle"].eq(100),
-        "run"
-    ] = None
+    df.loc[~df["Throttle"].eq(100), "run"] = None
 
-    filtered_df = df[
-        df["run"].notna()
-    ].reset_index(drop=True)
+    filtered_df = df[df["run"].notna()].reset_index(drop=True)
 
     if filtered_df.empty:
         return []
 
-    filtered_df["run"] = (
-        filtered_df["run"].astype(int)
-    )
+    filtered_df["run"] = filtered_df["run"].astype(int)
 
     group_dfs = []
 
-    # Split into individual WOT runs
     for _, group in filtered_df.groupby("run"):
 
         group = group.reset_index(drop=True)
@@ -101,17 +94,13 @@ def getWOTruns(df):
             errors="coerce"
         )
 
-        group = group[
-            group["RPM"].notna()
-        ].reset_index(drop=True)
+        group = group[group["RPM"].notna()].reset_index(drop=True)
 
         if group.empty:
             continue
 
-        # Find minimum RPM value in this WOT run
         min_rpm_index = group["RPM"].idxmin()
 
-        # Remove every line before the minimum RPM
         group = group.loc[
             min_rpm_index:
         ].reset_index(drop=True)
@@ -145,6 +134,8 @@ def getWOTparams(df, log):
                 r.append(r_pm)
                 break
 
+
+
     return g, r
 
 
@@ -152,18 +143,10 @@ def getKnocking(df, log):
 
     g, r = [], []
 
-    logged_FBKC = log.loc[
-        log["FBKC"] < 0
-    ]
+    logged_FBKC = log.loc[log["FBKC"] < 0]
+    logged_FLKC = log.loc[log["FLKC"] < 0]
 
-    logged_FLKC = log.loc[
-        log["FLKC"] < 0
-    ]
-
-    if (
-        len(logged_FBKC.index) == 0 and
-        len(logged_FLKC.index) == 0
-    ):
+    if len(logged_FBKC.index) == 0 and len(logged_FLKC.index) == 0:
         return g, r
 
     logged_knock = pd.concat([
@@ -248,13 +231,8 @@ def getVE(df):
         logged_IAT
     ):
 
-        AMP = (
-            AMP * 6.89476
-        ) + ATM_KPA
-
-        MAF = (
-            MAF * RPM / 60
-        )
+        AMP = (AMP * 6.89476) + ATM_KPA
+        MAF = MAF * RPM / 60
 
         calc_VE = (
             MAF /
@@ -290,17 +268,17 @@ def getVE(df):
     return df_VE
 
 
-# ---------- Heatmap ----------
-def make_annotated_heatmap(
-    df,
-    title,
-    colorscale="Spectral",
-    used=None,
-    knock=None,
-    x_title="Load (g/rev)",
-    y_title="RPM"
-):
 
+
+def make_annotated_heatmap(
+        df,
+        title,
+        colorscale="Spectral",
+        used=None,
+        knock=None,
+        x_title="Load (g/rev)",
+        y_title="RPM"
+):
     text = np.round(
         df.values,
         2
@@ -324,10 +302,9 @@ def make_annotated_heatmap(
         for r, g in used:
 
             if (
-                r in df.index and
-                g in df.columns
+                    r in df.index and
+                    g in df.columns
             ):
-
                 y_i = list(
                     df.index.astype(str)
                 ).index(str(r))
@@ -355,10 +332,9 @@ def make_annotated_heatmap(
         for r, g in knock:
 
             if (
-                r in df.index and
-                g in df.columns
+                    r in df.index and
+                    g in df.columns
             ):
-
                 y_i = list(
                     df.index.astype(str)
                 ).index(str(r))
@@ -386,10 +362,47 @@ def make_annotated_heatmap(
         yaxis_title=y_title,
         yaxis_autorange="reversed",
         width=600,
-        height=600
+        height=600,
+        paper_bgcolor=DARK_BG,
+        plot_bgcolor=DARK_PANEL,
+        font=dict(
+            color=LIGHT_TEXT
+        ),
+        margin=dict(
+            l=70,
+            r=30,
+            t=60,
+            b=60
+        )
+    )
+
+    # ---------- Axes ----------
+    fig.update_xaxes(
+        gridcolor=DARK_GRID,
+        linecolor=DARK_GRID,
+        zerolinecolor=DARK_GRID,
+        tickfont=dict(
+            color=LIGHT_TEXT
+        ),
+        title_font=dict(
+            color=LIGHT_TEXT
+        )
+    )
+
+    fig.update_yaxes(
+        gridcolor=DARK_GRID,
+        linecolor=DARK_GRID,
+        zerolinecolor=DARK_GRID,
+        tickfont=dict(
+            color=LIGHT_TEXT
+        ),
+        title_font=dict(
+            color=LIGHT_TEXT
+        )
     )
 
     return fig
+
 
 
 # ---------- Boost / Load / AFR ----------
@@ -420,51 +433,18 @@ def plotBoost(log):
         errors="coerce"
     )
 
-    valid_boost = (
-        RPM.notna() &
-        boost.notna()
-    )
+    valid_boost = RPM.notna() & boost.notna()
+    valid_load = RPM.notna() & load.notna()
+    valid_wideband = RPM.notna() & wideband.notna()
+    valid_final = RPM.notna() & final_afr.notna()
 
-    valid_load = (
-        RPM.notna() &
-        load.notna()
-    )
+    peak_boost = boost[valid_boost].max()
+    peak_boost_idx = boost[valid_boost].idxmax()
+    peak_boost_rpm = RPM.loc[peak_boost_idx]
 
-    valid_wideband = (
-        RPM.notna() &
-        wideband.notna()
-    )
-
-    valid_final = (
-        RPM.notna() &
-        final_afr.notna()
-    )
-
-    # ---------- Peak Boost ----------
-    peak_boost = boost[
-        valid_boost
-    ].max()
-
-    peak_boost_idx = boost[
-        valid_boost
-    ].idxmax()
-
-    peak_boost_rpm = RPM.loc[
-        peak_boost_idx
-    ]
-
-    # ---------- Peak Load ----------
-    peak_load = load[
-        valid_load
-    ].max()
-
-    peak_load_idx = load[
-        valid_load
-    ].idxmax()
-
-    peak_load_rpm = RPM.loc[
-        peak_load_idx
-    ]
+    peak_load = load[valid_load].max()
+    peak_load_idx = load[valid_load].idxmax()
+    peak_load_rpm = RPM.loc[peak_load_idx]
 
     # ---------- Subplots ----------
     fig = make_subplots(
@@ -503,7 +483,7 @@ def plotBoost(log):
             mode="lines",
             name="Boost",
             line=dict(
-                color="blue"
+                color="royalblue"
             )
         ),
         row=1,
@@ -559,12 +539,14 @@ def plotBoost(log):
             f"@ {peak_boost_rpm:.0f} RPM"
         ),
         showarrow=False,
-        bgcolor="rgba(0,0,0,0)",
+        font=dict(
+            color=LIGHT_TEXT
+        ),
+        bgcolor=DARK_PANEL,
         borderwidth=0
     )
 
     # ---------- Peak Load Text ----------
-    # Moved closer to Peak Boost text
     fig.add_annotation(
         xref="paper",
         yref="paper",
@@ -578,7 +560,10 @@ def plotBoost(log):
             f"@ {peak_load_rpm:.0f} RPM"
         ),
         showarrow=False,
-        bgcolor="rgba(0,0,0,0)",
+        font=dict(
+            color=LIGHT_TEXT
+        ),
+        bgcolor=DARK_PANEL,
         borderwidth=0
     )
 
@@ -591,7 +576,7 @@ def plotBoost(log):
             name="Wideband AFR",
             showlegend=False,
             line=dict(
-                color="blue"
+                color="firebrick"
             )
         ),
         row=2,
@@ -607,7 +592,7 @@ def plotBoost(log):
             name="Final Fueling Base",
             showlegend=False,
             line=dict(
-                color="blue",
+                color="firebrick",
                 dash="dash"
             )
         ),
@@ -618,20 +603,25 @@ def plotBoost(log):
     # ---------- Engine Load Axis ----------
     fig.update_yaxes(
         title_text="Engine Load (g/rev)",
-        range=[min(load), max(load) + .2],
+        range=[min(load), max(load)+.2],
         row=1,
         col=1,
-        secondary_y=False
+        secondary_y=False,
+        gridcolor=DARK_GRID,
+        zerolinecolor=DARK_GRID,
+        linecolor=DARK_GRID
     )
-
 
     # ---------- Boost Axis ----------
     fig.update_yaxes(
         title_text="Boost (psi)",
-        range=[min(boost), max(boost) + 1],
+        range=[min(boost), max(boost)+1],
         row=1,
         col=1,
-        secondary_y=True
+        secondary_y=True,
+        gridcolor=DARK_GRID,
+        zerolinecolor=DARK_GRID,
+        linecolor=DARK_GRID
     )
 
     # ---------- AFR Axis ----------
@@ -640,21 +630,28 @@ def plotBoost(log):
         range=[10, 18],
         fixedrange=True,
         row=2,
-        col=1
+        col=1,
+        gridcolor=DARK_GRID,
+        zerolinecolor=DARK_GRID,
+        linecolor=DARK_GRID
     )
 
+    # ---------- Shared RPM Axis ----------
     fig.update_xaxes(
-        matches="x",
         title_text="RPM",
-        showticklabels=True,
-        ticklabelposition="inside top",
-        row=2,
-        col=1
+        gridcolor=DARK_GRID,
+        zerolinecolor=DARK_GRID,
+        linecolor=DARK_GRID
     )
 
     # ---------- Layout ----------
     fig.update_layout(
-        title="Boost / Load & AFR vs RPM",
+        title=dict(
+            text="Boost / Load & AFR vs RPM",
+            font=dict(
+                color=LIGHT_TEXT
+            )
+        ),
         width=1000,
         height=800,
         margin=dict(
@@ -663,12 +660,22 @@ def plotBoost(log):
             t=70,
             b=60
         ),
+        paper_bgcolor=DARK_BG,
+        plot_bgcolor=DARK_PANEL,
+        font=dict(
+            color=LIGHT_TEXT
+        ),
         legend=dict(
             x=1.02,
             y=0.98,
             xanchor="left",
             yanchor="top",
-            bgcolor="rgba(255,255,255,0.8)"
+            bgcolor=DARK_PANEL,
+            bordercolor=DARK_GRID,
+            borderwidth=1,
+            font=dict(
+                color=LIGHT_TEXT
+            )
         )
     )
 
@@ -682,15 +689,18 @@ def plotBoost(log):
         yanchor="top",
         align="left",
         text=(
-            "<b>AFR</b><br>"
-            "<span style='color:blue'>━━</span> "
+            "<span style='color:#ff0000'>━━</span> "
             "Wideband AFR<br>"
-            "<span style='color:blue'>┅┅</span> "
+            "<span style='color:#ff0000'>┅┅</span> "
             "Final Fueling Base"
         ),
         showarrow=False,
-        bgcolor="rgba(255,255,255,0.8)",
-        borderwidth=0
+        font=dict(
+            color=LIGHT_TEXT
+        ),
+        bgcolor=DARK_PANEL,
+        bordercolor=DARK_GRID,
+        borderwidth=1
     )
 
     return fig
@@ -784,7 +794,6 @@ def main():
 
         VE = getVE(log)
 
-        # Cell highlighting
         g, r = getWOTparams(
             total_timing,
             log
@@ -835,7 +844,6 @@ def main():
             used=used_cells
         )
 
-        # Make Open Loop Fueling X-axis labels horizontal
         fig_fuel.update_xaxes(
             tickangle=0
         )
@@ -858,9 +866,7 @@ def main():
         )
 
         # ---------- Boost / AFR ----------
-        fig_boost = plotBoost(
-            log
-        )
+        fig_boost = plotBoost(log)
 
         figs.extend([
             fig_timing,
@@ -881,7 +887,6 @@ def main():
         run_num = idx + 1
         fig_index = idx * 5
 
-        # ---------- Timing ----------
         timing_html = figs[
             fig_index
         ].to_html(
@@ -893,7 +898,6 @@ def main():
             )
         )
 
-        # ---------- Fuel ----------
         fuel_html = figs[
             fig_index + 1
         ].to_html(
@@ -901,7 +905,6 @@ def main():
             include_plotlyjs=False
         )
 
-        # ---------- AVCS ----------
         avcs_html = figs[
             fig_index + 2
         ].to_html(
@@ -909,7 +912,6 @@ def main():
             include_plotlyjs=False
         )
 
-        # ---------- VE ----------
         ve_html = figs[
             fig_index + 3
         ].to_html(
@@ -917,7 +919,6 @@ def main():
             include_plotlyjs=False
         )
 
-        # ---------- Boost / AFR ----------
         boost_html = figs[
             fig_index + 4
         ].to_html(
@@ -949,27 +950,22 @@ def main():
 
             <div class="grid-timing">
 
-                <!-- Row 1 Column 1 -->
                 <div class="map">
                     {timing_html}
                 </div>
 
-                <!-- Row 1 Column 2 -->
                 <div class="map">
                     {fuel_html}
                 </div>
 
-                <!-- Row 2 Column 1 -->
                 <div class="map">
                     {avcs_html}
                 </div>
 
-                <!-- Row 2 Column 2 -->
                 <div class="map">
                     {ve_html}
                 </div>
 
-                <!-- Row 3 Column Span 2 -->
                 <div class="map boost-full">
                     {boost_html}
                 </div>
@@ -999,14 +995,25 @@ def main():
 
     <style>
 
+        * {{
+            box-sizing: border-box;
+        }}
+
+        html {{
+            background: {DARK_BG};
+        }}
+
         body {{
             font-family: Arial, sans-serif;
             margin: 12px;
+            background: {DARK_BG};
+            color: {LIGHT_TEXT};
         }}
 
         h1 {{
             margin-bottom: 12px;
             font-size: 20px;
+            color: {LIGHT_TEXT};
         }}
 
         .tab-bar {{
@@ -1017,18 +1024,29 @@ def main():
         }}
 
         .tab-bar button {{
-            background: #f1f1f1;
-            border: 1px solid #ccc;
+            background: {DARK_PANEL};
+            color: {MUTED_TEXT};
+            border: 1px solid {DARK_GRID};
             padding: 8px 14px;
             cursor: pointer;
             border-radius: 6px;
             font-weight: 600;
+            transition:
+                background 0.15s,
+                color 0.15s,
+                border-color 0.15s;
+        }}
+
+        .tab-bar button:hover {{
+            background: #292d35;
+            color: {LIGHT_TEXT};
+            border-color: #555b68;
         }}
 
         .tab-bar button.active {{
-            background: #2b8cff;
+            background: {ACCENT};
             color: white;
-            border-color: #1976d2;
+            border-color: {ACCENT};
         }}
 
         .chart-pane {{
@@ -1053,6 +1071,8 @@ def main():
         .map {{
             width: 100%;
             min-width: 300px;
+            background: {DARK_BG};
+            border-radius: 6px;
         }}
 
         .boost-full {{
@@ -1236,18 +1256,13 @@ def main():
         encoding="utf-8"
     ) as f:
 
-        f.write(
-            page_html
-        )
+        f.write(page_html)
 
-    print(
-        "Saved interactive WRX analysis to:"
-    )
+    print("Saved interactive WRX analysis to:")
 
-    print(
-        out_file
-    )
+    print(out_file)
 
 
 if __name__ == "__main__":
     main()
+
